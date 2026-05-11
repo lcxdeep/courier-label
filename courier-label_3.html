@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Courier Label</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; background: #f0f0f0; padding: 20px; }
+
+  /* Controls bar - hidden when printing */
+  .controls {
+    max-width: 800px;
+    margin: 0 auto 20px;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .controls label { font-weight: bold; font-size: 14px; }
+  .controls select, .controls button {
+    padding: 8px 14px;
+    font-size: 14px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .controls button {
+    background: #2c3e50;
+    color: white;
+    border: none;
+    font-weight: bold;
+  }
+  .controls button:hover { background: #34495e; }
+
+  /* Label page - A4 default */
+  .label-page {
+    background: white;
+    margin: 0 auto;
+    box-shadow: 0 0 15px rgba(0,0,0,0.15);
+  }
+  .label-page.a4 { width: 297mm; min-height: 210mm; padding: 25mm; }
+  .label-page.a5 { width: 210mm; min-height: 148mm; padding: 12mm; }
+
+  .section { margin-bottom: 18px; }
+  .section-label {
+    font-weight: bold;
+    margin-bottom: 6px;
+  }
+  .address-block {
+    border: 1px solid #000;
+    line-height: 1.5;
+  }
+  .address-block .name {
+    font-weight: bold;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+  .divider {
+    border-top: 2px solid #000;
+    margin: 18px 0;
+  }
+
+  /* A4 sizing — bigger, roomy */
+  .a4 .section-label { font-size: 22px; }
+  .a4 .address-block { font-size: 24px; padding: 22px; }
+  .a4 .address-block .name { font-size: 30px; }
+
+  /* A5 sizing — compact, fits one page */
+  .a5 .section-label { font-size: 16px; }
+  .a5 .address-block { font-size: 17px; padding: 12px; }
+  .a5 .address-block .name { font-size: 21px; }
+  .a5 .section { margin-bottom: 10px; }
+  .a5 .divider { margin: 10px 0; }
+
+  /* Print styles */
+  @media print {
+    body { background: white; padding: 0; }
+    .controls { display: none; }
+    .label-page { box-shadow: none; margin: 0; }
+    @page { margin: 0; size: landscape; }
+  }
+  @media print {
+    .label-page.a4 { padding: 15mm; }
+    .label-page.a5 { padding: 8mm; }
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <label>Paper Size:</label>
+  <select id="paperSize" onchange="changeSize()">
+    <option value="a4">A4</option>
+    <option value="a5" selected>A5</option>
+  </select>
+
+  <label>From Address:</label>
+  <select id="fromAddr" onchange="updateFrom()">
+    <option value="C">C Wing</option>
+    <option value="A" selected>A Wing</option>
+  </select>
+
+  <button onclick="window.print()">🖨️ Print / Save as PDF</button>
+  <button onclick="loadDemo()" style="background:#27ae60;">🧪 Load Demo Data</button>
+  <button onclick="clearDemo()" style="background:#c0392b;">🗑️ Clear</button>
+</div>
+
+<div class="label-page a5" id="labelPage">
+
+  <div class="section">
+    <div class="section-label">To,</div>
+    <div class="address-block">
+      <div class="name" id="toName">—</div>
+      <div id="toAddr1"></div>
+      <div id="toAddr2"></div>
+      <div id="toCityLine"></div>
+      <div id="toCountry"></div>
+      <div id="toPhoneLine"></div>
+      <div id="toMobileLine"></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section">
+    <div class="section-label">From,</div>
+    <div class="address-block">
+      <div class="name">STUDIO LCX FASHION PVT LTD</div>
+      <div id="fromAddr1"></div>
+      <div id="fromAddr2"></div>
+      <div id="fromCityLine"></div>
+      <div>MOB NO – 9320426959</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // From address data
+  const fromAddresses = {
+    "C": {
+      line1: "C-101, MHATRE PEN INDUSTRIAL EST,",
+      line2: "SENAPATI BAPAT MARG, DADAR WEST",
+      city: "MUMBAI - 400028"
+    },
+    "A": {
+      line1: "A-112, 1ST FLOOR, MHATRE PEN INDUSTRIAL EST,",
+      line2: "SENAPATI BAPAT MARG, DADAR WEST",
+      city: "MUMBAI - 400028"
+    }
+  };
+
+  // Read URL params and populate TO fields
+  const params = new URLSearchParams(window.location.search);
+  function setText(id, value) {
+    const el = document.getElementById(id);
+    if (value && value.trim() !== "") {
+      el.textContent = value;
+      el.style.display = "block";
+    } else {
+      el.style.display = "none";
+    }
+  }
+
+  setText("toName", params.get("name") || "—");
+  setText("toAddr1", params.get("addr1") || "");
+  setText("toAddr2", params.get("addr2") || "");
+
+  const city = params.get("city") || "";
+  const state = params.get("state") || "";
+  const zip = params.get("zip") || "";
+  let cityLine = [city, state].filter(s => s && s.trim()).join(", ");
+  if (zip) cityLine += " - " + zip;
+  setText("toCityLine", cityLine);
+
+  setText("toCountry", params.get("country") || "");
+
+  const phone = params.get("phone") || "";
+  const mobile = params.get("mobile") || "";
+  setText("toPhoneLine", phone ? "Phone: " + phone : "");
+  setText("toMobileLine", mobile ? "Mobile: " + mobile : "");
+
+  // Populate FROM
+  function updateFrom() {
+    const key = document.getElementById("fromAddr").value;
+    const addr = fromAddresses[key];
+    document.getElementById("fromAddr1").textContent = addr.line1;
+    document.getElementById("fromAddr2").textContent = addr.line2;
+    document.getElementById("fromCityLine").textContent = addr.city;
+  }
+  updateFrom();
+
+  // Dynamic @page rule for correct print paper size
+  const pageStyle = document.createElement("style");
+  document.head.appendChild(pageStyle);
+
+  // Toggle paper size
+  function changeSize() {
+    const size = document.getElementById("paperSize").value;
+    const page = document.getElementById("labelPage");
+    page.classList.remove("a4", "a5");
+    page.classList.add(size);
+    pageStyle.textContent = "@media print { @page { size: " + size.toUpperCase() + " landscape; margin: 0; } }";
+  }
+  // Set initial print page size
+  changeSize();
+
+  // Demo data — mirrors the True Clothing Inc address from reference image
+  function loadDemo() {
+    setText("toName", "TRUE CLOTHING INC");
+    setText("toAddr1", "KHASRA NO 1143 PLOT NO.17,18 2ND FLOOR");
+    setText("toAddr2", "RITHALA INDUSTRIAL, NEAR BAGGA LINK SERVICE CENTER");
+    setText("toCityLine", "DELHI - 110085");
+    setText("toCountry", "INDIA");
+    setText("toPhoneLine", "Phone: 9013725151");
+    setText("toMobileLine", "Mobile: 9212710630");
+  }
+
+  function clearDemo() {
+    setText("toName", "—");
+    setText("toAddr1", "");
+    setText("toAddr2", "");
+    setText("toCityLine", "");
+    setText("toCountry", "");
+    setText("toPhoneLine", "");
+    setText("toMobileLine", "");
+  }
+</script>
+
+</body>
+</html>
