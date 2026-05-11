@@ -117,6 +117,7 @@
       <div class="name" id="toName">—</div>
       <div id="toAddr1"></div>
       <div id="toAddr2"></div>
+      <div id="toArea"></div>
       <div id="toCityLine"></div>
       <div id="toCountry"></div>
       <div id="toPhoneLine"></div>
@@ -169,6 +170,7 @@
   setText("toName", params.get("name") || "—");
   setText("toAddr1", params.get("addr1") || "");
   setText("toAddr2", params.get("addr2") || "");
+  setText("toArea", params.get("area") || "");
 
   const city = params.get("city") || "";
   const state = params.get("state") || "";
@@ -214,6 +216,7 @@
     setText("toName", "TRUE CLOTHING INC");
     setText("toAddr1", "KHASRA NO 1143 PLOT NO.17,18 2ND FLOOR");
     setText("toAddr2", "RITHALA INDUSTRIAL, NEAR BAGGA LINK SERVICE CENTER");
+    setText("toArea", "RITHALA");
     setText("toCityLine", "DELHI - 110085");
     setText("toCountry", "INDIA");
     setText("toPhoneLine", "Phone: 9013725151");
@@ -224,6 +227,7 @@
     setText("toName", "—");
     setText("toAddr1", "");
     setText("toAddr2", "");
+    setText("toArea", "");
     setText("toCityLine", "");
     setText("toCountry", "");
     setText("toPhoneLine", "");
