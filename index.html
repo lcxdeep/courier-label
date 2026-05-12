@@ -2,138 +2,177 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Courier Label</title>
+<title>Courier Label — To & From</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; background: #f0f0f0; padding: 20px; }
-
-  /* Controls bar - hidden when printing */
-  .controls {
-    max-width: 800px;
-    margin: 0 auto 20px;
-    background: white;
-    padding: 15px;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-    align-items: center;
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f0f0f0;
   }
-  .controls label { font-weight: bold; font-size: 14px; }
+
+  /* Controls bar — hidden on print */
+  .controls {
+    padding: 12px 16px;
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .controls label { font-size: 14px; }
   .controls select, .controls button {
-    padding: 8px 14px;
+    padding: 6px 12px;
     font-size: 14px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
     cursor: pointer;
   }
-  .controls button {
-    background: #2c3e50;
-    color: white;
-    border: none;
-    font-weight: bold;
-  }
-  .controls button:hover { background: #34495e; }
+  .controls button { background: #2c7be5; color: #fff; border: none; border-radius: 4px; }
+  .controls button.secondary { background: #6c757d; }
+  .controls button.danger { background: #dc3545; }
 
-  /* Label page - A4 default */
-  .label-page {
-    background: white;
-    margin: 0 auto;
-    box-shadow: 0 0 15px rgba(0,0,0,0.15);
+  /* Label sheet */
+  .sheet {
+    background: #fff;
+    margin: 20px auto;
+    padding: 12px 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
   }
-  .label-page.a4 { width: 297mm; min-height: 210mm; padding: 25mm; }
-  .label-page.a5 { width: 210mm; min-height: 148mm; padding: 12mm; }
+  .sheet.a5 { width: 210mm; height: 148mm; }
+  .sheet.a4 { width: 297mm; height: 210mm; }
 
-  .section { margin-bottom: 18px; }
+  .section { margin-bottom: 14px; }
   .section-label {
     font-weight: bold;
+    font-size: 18px;
     margin-bottom: 6px;
   }
   .address-block {
     border: 1px solid #000;
     line-height: 1.5;
   }
+  .address-block #toAddr1 {
+    white-space: pre-line;
+  }
   .address-block .name {
     font-weight: bold;
-    margin-bottom: 8px;
     text-transform: uppercase;
+    font-size: 22px;
+    margin-bottom: 4px;
   }
-  .divider {
-    border-top: 2px solid #000;
-    margin: 18px 0;
+  .editable-line {
+    background: #fff8b0;
+    min-height: 1.4em;
+    padding: 2px 4px;
+    margin: 2px 0;
+    outline: none;
+    border: 1px dashed #d4b800;
   }
+  .editable-line:empty::before {
+    content: "click here to add Street 2 / extra line";
+    color: #999;
+    font-style: italic;
+  }
+  .editable-line:focus {
+    background: #fff080;
+    border-style: solid;
+  }
+  .editable-line:focus:empty::before { content: ""; }
 
-  /* A4 sizing — bigger, roomy */
-  .a4 .section-label { font-size: 22px; }
-  .a4 .address-block { font-size: 24px; padding: 22px; }
-  .a4 .address-block .name { font-size: 30px; }
+  .divider {
+    border: none;
+    border-top: 2px dashed #000;
+    margin: 14px 0;
+  }
 
   /* A5 sizing — compact, fits one page */
-  .a5 .section-label { font-size: 16px; }
-  .a5 .address-block { font-size: 17px; padding: 12px; }
-  .a5 .address-block .name { font-size: 21px; }
-  .a5 .section { margin-bottom: 10px; }
-  .a5 .divider { margin: 10px 0; }
+  .a5 .section-label { font-size: 14px; margin-bottom: 3px; }
+  .a5 .address-block { font-size: 15px; padding: 8px 10px; line-height: 1.3; }
+  .a5 .address-block .name { font-size: 19px; margin-bottom: 2px; }
+  .a5 .section { margin-bottom: 6px; }
+  .a5 .divider { margin: 6px 0; }
+  .a5 .editable-line { font-size: 14px; }
 
-  /* Print styles */
+  /* From block is more compact since its content is short and known */
+  .a5 .from-block { font-size: 13px; padding: 6px 10px; line-height: 1.25; }
+  .a5 .from-block .name { font-size: 16px; margin-bottom: 2px; }
+  .a4 .from-block { font-size: 20px; padding: 18px; line-height: 1.4; }
+  .a4 .from-block .name { font-size: 26px; margin-bottom: 6px; }
+
+  /* A4 sizing — larger */
+  .a4 .section-label { font-size: 22px; }
+  .a4 .address-block { font-size: 22px; padding: 18px; }
+  .a4 .address-block .name { font-size: 28px; }
+
+  /* Print rules */
   @media print {
-    body { background: white; padding: 0; }
+    body { background: #fff; }
     .controls { display: none; }
-    .label-page { box-shadow: none; margin: 0; }
-    @page { margin: 0; size: landscape; }
-  }
-  @media print {
-    .label-page.a4 { padding: 15mm; }
-    .label-page.a5 { padding: 8mm; }
+    .sheet {
+      margin: 0;
+      padding: 6mm 8mm;
+      box-shadow: none;
+      width: 100% !important;
+      height: 100% !important;
+    }
+    .editable-line {
+      background: transparent !important;
+      padding: 0 !important;
+      border: none !important;
+    }
+    .editable-line:empty { display: none; }
+    .editable-line:empty::before { content: "" !important; }
   }
 </style>
 </head>
 <body>
 
 <div class="controls">
-  <label>Paper Size:</label>
-  <select id="paperSize" onchange="changeSize()">
-    <option value="a4">A4</option>
-    <option value="a5" selected>A5</option>
-  </select>
+  <label>Paper:
+    <select id="paperSize">
+      <option value="a5" selected>A5 Landscape</option>
+      <option value="a4">A4 Landscape</option>
+    </select>
+  </label>
 
-  <label>From Address:</label>
-  <select id="fromAddr" onchange="updateFrom()">
-    <option value="C">C Wing</option>
-    <option value="A" selected>A Wing</option>
-  </select>
+  <label>From:
+    <select id="fromWing">
+      <option value="a" selected>A Wing (A-112)</option>
+      <option value="c">C Wing (C-101)</option>
+    </select>
+  </label>
 
-  <button onclick="window.print()">🖨️ Print / Save as PDF</button>
-  <button onclick="loadDemo()" style="background:#27ae60;">🧪 Load Demo Data</button>
-  <button onclick="clearDemo()" style="background:#c0392b;">🗑️ Clear</button>
+  <button onclick="window.print()">🖨️ Print</button>
+  <button class="secondary" onclick="loadDemo()">Load Demo</button>
+  <button class="danger" onclick="clearTo()">Clear</button>
 </div>
 
-<div class="label-page a5" id="labelPage">
+<div class="sheet a5" id="sheet">
 
   <div class="section">
     <div class="section-label">To,</div>
     <div class="address-block">
-      <div class="name" id="toName">—</div>
+      <div class="name" id="toName"></div>
       <div id="toAddr1"></div>
-      <div id="toAddr2"></div>
+      <div class="editable-line" id="toEditable" contenteditable="true"></div>
       <div id="toArea"></div>
-      <div id="toCityLine"></div>
+      <div id="toCityStateZip"></div>
       <div id="toCountry"></div>
-      <div id="toPhoneLine"></div>
-      <div id="toMobileLine"></div>
+      <div id="toPhone"></div>
+      <div id="toMobile"></div>
     </div>
   </div>
 
-  <div class="divider"></div>
+  <hr class="divider">
 
   <div class="section">
     <div class="section-label">From,</div>
-    <div class="address-block">
+    <div class="address-block from-block">
       <div class="name">STUDIO LCX FASHION PVT LTD</div>
-      <div id="fromAddr1"></div>
-      <div id="fromAddr2"></div>
-      <div id="fromCityLine"></div>
+      <div id="fromAddr"></div>
+      <div>MHATRE PEN INDUSTRIAL ESTATE</div>
+      <div>SENAPATI BAPAT MARG, DADAR WEST</div>
+      <div>MUMBAI – 400028, MAHARASHTRA, INDIA</div>
       <div>MOB NO – 9320426959</div>
     </div>
   </div>
@@ -141,97 +180,101 @@
 </div>
 
 <script>
-  // From address data
-  const fromAddresses = {
-    "C": {
-      line1: "C-101, MHATRE PEN INDUSTRIAL EST,",
-      line2: "SENAPATI BAPAT MARG, DADAR WEST",
-      city: "MUMBAI - 400028"
-    },
-    "A": {
-      line1: "A-112, 1ST FLOOR, MHATRE PEN INDUSTRIAL EST,",
-      line2: "SENAPATI BAPAT MARG, DADAR WEST",
-      city: "MUMBAI - 400028"
-    }
-  };
-
-  // Read URL params and populate TO fields
+  // ---- Read URL params and populate To block ----
   const params = new URLSearchParams(window.location.search);
-  function setText(id, value) {
+
+  function setText(id, val) {
     const el = document.getElementById(id);
-    if (value && value.trim() !== "") {
-      el.textContent = value;
-      el.style.display = "block";
+    if (val && val.trim()) el.textContent = val.trim();
+    else el.style.display = "none";
+  }
+
+  function populateTo() {
+    setText("toName",  params.get("name"));
+    setText("toAddr1", params.get("addr1"));
+    setText("toArea",  params.get("area"));
+
+    const city  = params.get("city")  || "";
+    const state = params.get("state") || "";
+    const zip   = params.get("zip")   || "";
+    const csz = [city, state, zip].filter(s => s && s.trim()).join(", ");
+    setText("toCityStateZip", csz);
+
+    setText("toCountry", params.get("country"));
+
+    const phone  = params.get("phone");
+    const mobile = params.get("mobile");
+    setText("toPhone",  phone  ? "PH: "  + phone  : "");
+    setText("toMobile", mobile ? "MOB: " + mobile : "");
+  }
+  populateTo();
+
+  // ---- Paper size ----
+  const sheet = document.getElementById("sheet");
+  const paperSel = document.getElementById("paperSize");
+
+  function applyPaperSize() {
+    sheet.classList.remove("a5", "a4");
+    sheet.classList.add(paperSel.value);
+    injectPageRule(paperSel.value);
+  }
+
+  function injectPageRule(size) {
+    let existing = document.getElementById("pageRule");
+    if (existing) existing.remove();
+    const style = document.createElement("style");
+    style.id = "pageRule";
+    if (size === "a5") {
+      style.textContent = "@page { size: 210mm 148mm; margin: 0; }";
     } else {
-      el.style.display = "none";
+      style.textContent = "@page { size: 297mm 210mm; margin: 0; }";
+    }
+    document.head.appendChild(style);
+  }
+
+  paperSel.addEventListener("change", applyPaperSize);
+  applyPaperSize();
+
+  // ---- From wing ----
+  const fromSel = document.getElementById("fromWing");
+  const fromAddr = document.getElementById("fromAddr");
+
+  function applyFromWing() {
+    if (fromSel.value === "a") {
+      fromAddr.textContent = "A-112, 1ST FLOOR";
+    } else {
+      fromAddr.textContent = "C-101";
     }
   }
+  fromSel.addEventListener("change", applyFromWing);
+  applyFromWing();
 
-  setText("toName", params.get("name") || "—");
-  setText("toAddr1", params.get("addr1") || "");
-  setText("toAddr2", params.get("addr2") || "");
-  setText("toArea", params.get("area") || "");
-
-  const city = params.get("city") || "";
-  const state = params.get("state") || "";
-  const zip = params.get("zip") || "";
-  let cityLine = [city, state].filter(s => s && s.trim()).join(", ");
-  if (zip) cityLine += " - " + zip;
-  setText("toCityLine", cityLine);
-
-  setText("toCountry", params.get("country") || "");
-
-  const phone = params.get("phone") || "";
-  const mobile = params.get("mobile") || "";
-  setText("toPhoneLine", phone ? "Phone: " + phone : "");
-  setText("toMobileLine", mobile ? "Mobile: " + mobile : "");
-
-  // Populate FROM
-  function updateFrom() {
-    const key = document.getElementById("fromAddr").value;
-    const addr = fromAddresses[key];
-    document.getElementById("fromAddr1").textContent = addr.line1;
-    document.getElementById("fromAddr2").textContent = addr.line2;
-    document.getElementById("fromCityLine").textContent = addr.city;
-  }
-  updateFrom();
-
-  // Dynamic @page rule for correct print paper size
-  const pageStyle = document.createElement("style");
-  document.head.appendChild(pageStyle);
-
-  // Toggle paper size
-  function changeSize() {
-    const size = document.getElementById("paperSize").value;
-    const page = document.getElementById("labelPage");
-    page.classList.remove("a4", "a5");
-    page.classList.add(size);
-    pageStyle.textContent = "@media print { @page { size: " + size.toUpperCase() + " landscape; margin: 0; } }";
-  }
-  // Set initial print page size
-  changeSize();
-
-  // Demo data — mirrors the True Clothing Inc address from reference image
+  // ---- Demo data ----
   function loadDemo() {
-    setText("toName", "TRUE CLOTHING INC");
-    setText("toAddr1", "KHASRA NO 1143 PLOT NO.17,18 2ND FLOOR");
-    setText("toAddr2", "RITHALA INDUSTRIAL, NEAR BAGGA LINK SERVICE CENTER");
-    setText("toArea", "RITHALA");
-    setText("toCityLine", "DELHI - 110085");
-    setText("toCountry", "INDIA");
-    setText("toPhoneLine", "Phone: 9013725151");
-    setText("toMobileLine", "Mobile: 9212710630");
+    document.getElementById("toName").textContent       = "TRUE CLOTHING INC";
+    document.getElementById("toName").style.display     = "";
+    document.getElementById("toAddr1").textContent      = "SHOP NO 7, GROUND FLOOR\nSAI DARSHAN CHS";
+    document.getElementById("toAddr1").style.display    = "";
+    document.getElementById("toArea").textContent       = "RITHALA";
+    document.getElementById("toArea").style.display     = "";
+    document.getElementById("toCityStateZip").textContent = "NEW DELHI, DELHI, 110085";
+    document.getElementById("toCityStateZip").style.display = "";
+    document.getElementById("toCountry").textContent    = "INDIA";
+    document.getElementById("toCountry").style.display  = "";
+    document.getElementById("toPhone").textContent      = "PH: 011-12345678";
+    document.getElementById("toPhone").style.display    = "";
+    document.getElementById("toMobile").textContent     = "MOB: 9876543210";
+    document.getElementById("toMobile").style.display   = "";
   }
 
-  function clearDemo() {
-    setText("toName", "—");
-    setText("toAddr1", "");
-    setText("toAddr2", "");
-    setText("toArea", "");
-    setText("toCityLine", "");
-    setText("toCountry", "");
-    setText("toPhoneLine", "");
-    setText("toMobileLine", "");
+  function clearTo() {
+    ["toName","toAddr1","toArea","toCityStateZip","toCountry","toPhone","toMobile"]
+      .forEach(id => {
+        const el = document.getElementById(id);
+        el.textContent = "";
+        el.style.display = "none";
+      });
+    document.getElementById("toEditable").textContent = "";
   }
 </script>
 
