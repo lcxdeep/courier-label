@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Envelope Label</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f0f0f0;
+    color: #000;
+    padding: 20px;
+  }
+
+  /* Controls bar — hidden on print */
+  .controls {
+    max-width: 900px;
+    margin: 0 auto 20px;
+    background: #fff;
+    padding: 12px 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .controls button {
+    padding: 8px 14px;
+    font-size: 14px;
+    cursor: pointer;
+    border: 1px solid #888;
+    background: #fafafa;
+    border-radius: 3px;
+  }
+  .controls button.primary {
+    background: #1a73e8;
+    color: #fff;
+    border-color: #1a73e8;
+  }
+  .controls button:hover { background: #eee; }
+  .controls button.primary:hover { background: #1557b0; }
+  .controls .info {
+    margin-left: auto;
+    font-size: 12px;
+    color: #666;
+  }
+
+  /* Envelope sheet — 241mm x 105mm landscape */
+  .sheet {
+    width: 241mm;
+    height: 105mm;
+    background: #fff;
+    margin: 0 auto;
+    padding: 20mm 30mm 30mm 130mm; /* top right bottom left */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .to-header {
+    font-weight: bold;
+    font-size: 15px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  .name {
+    font-weight: bold;
+    font-size: 15px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    line-height: 1.25;
+    word-wrap: break-word;
+  }
+
+  .addr-line {
+    font-size: 13px;
+    line-height: 1.35;
+    word-wrap: break-word;
+  }
+
+  #toAddr1 {
+    white-space: pre-line;
+  }
+
+  /* Editable Street 2 line */
+  .editable-line {
+    font-size: 13px;
+    line-height: 1.35;
+    background: #fff8b0;
+    border: 1px dashed #c4a800;
+    padding: 1px 4px;
+    margin: 1px 0;
+    min-height: 18px;
+    outline: none;
+    cursor: text;
+  }
+  .editable-line:empty::before {
+    content: "click here to add Street 2 / extra line";
+    color: #999;
+    font-style: italic;
+  }
+  .editable-line:focus {
+    background: #fff;
+    border-color: #1a73e8;
+  }
+
+  /* Print rules */
+  @page {
+    size: 241mm 105mm;
+    margin: 0;
+  }
+
+  @media print {
+    body {
+      background: #fff;
+      padding: 0;
+      margin: 0;
+    }
+    .controls { display: none !important; }
+    .sheet {
+      box-shadow: none;
+      margin: 0;
+      width: 241mm;
+      height: 105mm;
+      page-break-after: avoid;
+    }
+    .editable-line {
+      background: transparent !important;
+      border: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      font-style: normal !important;
+    }
+    .editable-line:empty {
+      display: none !important;
+    }
+    .editable-line:empty::before {
+      content: "" !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <button class="primary" onclick="window.print()">🖨 Print</button>
+  <button onclick="loadDemo()">Load Demo Data</button>
+  <button onclick="clearData()">Clear</button>
+  <span class="info">Envelope #10 — 241mm × 105mm</span>
+</div>
+
+<div class="sheet">
+  <div class="to-header">TO,</div>
+  <div class="name" id="toName">RECIPIENT NAME</div>
+  <div class="addr-line" id="toAddr1">Address line 1</div>
+  <div class="editable-line" id="toEditable" contenteditable="true"></div>
+  <div class="addr-line" id="toArea"></div>
+  <div class="addr-line" id="toCityLine"></div>
+  <div class="addr-line" id="toCountry"></div>
+  <div class="addr-line" id="toPhone"></div>
+  <div class="addr-line" id="toMobile"></div>
+</div>
+
+<script>
+  function getParam(key) {
+    const v = new URLSearchParams(window.location.search).get(key);
+    return v ? v.trim() : '';
+  }
+
+  function setText(id, text) {
+    const el = document.getElementById(id);
+    if (text) {
+      el.textContent = text;
+      el.style.display = '';
+    } else {
+      el.textContent = '';
+      el.style.display = 'none';
+    }
+  }
+
+  function populate() {
+    const name = getParam('name');
+    const addr1 = getParam('addr1');
+    const area = getParam('area');
+    const city = getParam('city');
+    const state = getParam('state');
+    const zip = getParam('zip');
+    const country = getParam('country');
+    const phone = getParam('phone');
+    const mobile = getParam('mobile');
+
+    // Name — always uppercase
+    const nameEl = document.getElementById('toName');
+    if (name) {
+      nameEl.textContent = name.toUpperCase();
+    } else {
+      nameEl.textContent = 'RECIPIENT NAME';
+    }
+
+    setText('toAddr1', addr1);
+    setText('toArea', area);
+
+    const cityParts = [city, state, zip].filter(Boolean).join(' ');
+    setText('toCityLine', cityParts);
+
+    setText('toCountry', country);
+    setText('toPhone', phone ? 'Phone: ' + phone : '');
+    setText('toMobile', mobile ? 'Mobile: ' + mobile : '');
+  }
+
+  function loadDemo() {
+    const params = new URLSearchParams({
+      name: 'Shankheshwara Agencies',
+      addr1: 'Jai Hind Building 2A, 5th Floor,\nRoom No-1,',
+      area: 'Bhuleshwar Atmaram Merchant Road',
+      city: 'Mumbai',
+      state: 'Maharashtra',
+      zip: '400002',
+      country: 'India',
+      phone: '',
+      mobile: '9833301191'
+    });
+    window.location.search = params.toString();
+  }
+
+  function clearData() {
+    window.location.href = window.location.pathname;
+  }
+
+  populate();
+</script>
+
+</body>
+</html>
