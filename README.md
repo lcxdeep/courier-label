@@ -37,7 +37,7 @@ All four buttons are configured in:
 
 ### To & From — Customer
 ```
-https://lcxdeep.github.io/courier-label/?name=${CONTACT.CUSTOMER_NAME}&addr1=${CONTACT.BILLING_ADDRESS}&area=${CONTACT.CF.Area}&city=${CONTACT.BILLING_CITY}&state=${CONTACT.BILLING_STATE}&zip=${CONTACT.BILLING_CODE}&country=${CONTACT.BILLING_COUNTRY}&phone=${CONTACT.WORK_PHONE}&mobile=${CONTACT.MOBILE_PHONE}
+https://lcxdeep.github.io/courier-label/?name=${CONTACT.COMPANY_NAME}&addr1=${CONTACT.BILLING_ADDRESS}&area=${CONTACT.CF.Area}&city=${CONTACT.BILLING_CITY}&state=${CONTACT.BILLING_STATE}&zip=${CONTACT.BILLING_CODE}&country=${CONTACT.BILLING_COUNTRY}&phone=${CONTACT.WORK_PHONE}&mobile=${CONTACT.MOBILE_PHONE}
 ```
 
 ### To & From — Vendor
@@ -47,7 +47,7 @@ https://lcxdeep.github.io/courier-label/?name=${CONTACT.COMPANY_NAME}&addr1=${CO
 
 ### Envelope — Customer
 ```
-https://lcxdeep.github.io/courier-label/envelope.html?name=${CONTACT.CUSTOMER_NAME}&addr1=${CONTACT.BILLING_ADDRESS}&area=${CONTACT.CF.Area}&city=${CONTACT.BILLING_CITY}&state=${CONTACT.BILLING_STATE}&zip=${CONTACT.BILLING_CODE}&country=${CONTACT.BILLING_COUNTRY}&phone=${CONTACT.WORK_PHONE}&mobile=${CONTACT.MOBILE_PHONE}
+https://lcxdeep.github.io/courier-label/envelope.html?name=${CONTACT.COMPANY_NAME}&addr1=${CONTACT.BILLING_ADDRESS}&area=${CONTACT.CF.Area}&city=${CONTACT.BILLING_CITY}&state=${CONTACT.BILLING_STATE}&zip=${CONTACT.BILLING_CODE}&country=${CONTACT.BILLING_COUNTRY}&phone=${CONTACT.WORK_PHONE}&mobile=${CONTACT.MOBILE_PHONE}
 ```
 
 ### Envelope — Vendor
@@ -55,9 +55,7 @@ https://lcxdeep.github.io/courier-label/envelope.html?name=${CONTACT.CUSTOMER_NA
 https://lcxdeep.github.io/courier-label/envelope.html?name=${CONTACT.COMPANY_NAME}&addr1=${CONTACT.BILLING_ADDRESS}&area=${CONTACT.CF.Area}&city=${CONTACT.BILLING_CITY}&state=${CONTACT.BILLING_STATE}&zip=${CONTACT.BILLING_CODE}&country=${CONTACT.BILLING_COUNTRY}&phone=${CONTACT.WORK_PHONE}&mobile=${CONTACT.MOBILE_PHONE}
 ```
 
-**Difference between Customer and Vendor URLs:** only the name placeholder.
-Customer → `${CONTACT.CUSTOMER_NAME}`
-Vendor → `${CONTACT.COMPANY_NAME}`
+**Name placeholder:** all four buttons use `${CONTACT.COMPANY_NAME}`. `${CONTACT.CUSTOMER_NAME}` returns empty for Business-type customers, and `${CONTACT.DISPLAY_NAME}` does not exist in Zoho Books. Individual-type customers (no company name) would print blank, but they aren't used.
 
 ---
 
