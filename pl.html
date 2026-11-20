@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Profit &amp; Loss A/c — Studio LCX</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Segoe UI, Arial, sans-serif; font-size: 13px; color: #111; background: #f4f5f7; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 10px 16px; background: #fff; border-bottom: 1px solid #ddd; position: sticky; top: 0; z-index: 5; }
+  .bar label { font-weight: 600; }
+  .bar input[type=date] { padding: 4px 6px; font-size: 13px; }
+  .bar button { padding: 6px 14px; font-size: 13px; cursor: pointer; border: 1px solid #999; background: #fff; border-radius: 3px; }
+  .bar button.primary { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+  .bar button:disabled { opacity: .5; cursor: default; }
+  #status { margin-left: auto; color: #555; }
+  .msg { margin: 12px 16px; padding: 10px 12px; border-radius: 3px; }
+  .msg.err { background: #fde8e8; border: 1px solid #e0a0a0; color: #8a1c1c; }
+  .msg.warn { background: #fdecea; border: 2px solid #d93025; color: #a50e0e; font-weight: 600; }
+  .msg.info { background: #eef4ff; border: 1px solid #b8cdf5; }
+  .sheet { background: #fff; margin: 12px 16px 24px; padding: 14px 16px; border: 1px solid #ddd; }
+  h1 { font-size: 16px; margin: 0 0 2px; text-align: center; }
+  .sub { text-align: center; color: #444; margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th, td { border: 1px solid #bbb; padding: 3px 6px; vertical-align: top; }
+  th { background: #eee; font-weight: 600; }
+  col.p { width: 32%; } col.pc { width: 6%; } col.a { width: 12%; }
+  td.pc, td.a { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.a.ed { cursor: pointer; }
+  td.a.ed:hover { outline: 1px dashed #1f6feb; }
+  td.a.changed { background: #fff59d; }
+  td.a input { width: 100%; text-align: right; font: inherit; padding: 0 2px; }
+  td.p.sec { font-weight: 700; }
+  td.p.child { padding-left: 22px; color: #333; }
+  td.p.grp { font-weight: 600; cursor: pointer; }
+  td.p.grp::before { content: '\25B8\00a0'; }
+  td.p.grp.open::before { content: '\25BE\00a0'; }
+  tr.tot td { font-weight: 700; background: #f2f2f2; }
+  tr.gpnp td { font-weight: 700; }
+  .sechead td { background: #fafafa; font-weight: 700; text-align: center; }
+  .neg { color: #b00020; }
+  .foot { margin-top: 8px; color: #555; font-size: 12px; }
+  .edited-note { display: none; color: #8a6d00; font-weight: 600; text-align: center; margin-bottom: 6px; }
+  .edited .edited-note { display: block; }
+  @page { size: A4 landscape; margin: 10mm; }
+  @media print {
+    body { background: #fff; font-size: 11px; }
+    .bar, .msg.info, #status { display: none !important; }
+    .sheet { margin: 0; border: 0; padding: 0; }
+    td.a.ed:hover { outline: none; }
+    td.p.grp::before, td.p.grp.open::before { content: ''; }
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <label for="from">From</label><input type="date" id="from">
+  <label for="to">To</label><input type="date" id="to">
+  <button class="primary" id="run" disabled>Run</button>
+  <button id="reset" disabled>Reset</button>
+  <button id="print" disabled>Print</button>
+  <span id="status">Waiting for Zoho Books…</span>
+</div>
+<div id="msgs"></div>
+<div class="sheet" id="sheet" style="display:none">
+  <h1>Studio LCX Fashion Pvt Ltd</h1>
+  <div class="sub" id="period"></div>
+  <div class="edited-note">What-if figures — edited on screen, not Zoho's figures</div>
+  <table id="tbl">
+    <colgroup><col class="p"><col class="pc"><col class="a"><col class="p"><col class="pc"><col class="a"></colgroup>
+    <thead><tr><th>Expenses</th><th>%</th><th>Amount (₹)</th><th>Income</th><th>%</th><th>Amount (₹)</th></tr></thead>
+    <tbody id="body"></tbody>
+  </table>
+  <div class="foot" id="foot"></div>
+</div>
+<script>
+(function () {
+  'use strict';
+  var WEBHOOK = 'https://lcxdeep.app.n8n.cloud/webhook/lcx-pl-report-7c2e91';
+  var ZOHO_ORIGIN = 'https://books.zoho.in';
+  var token = null, tokenWaiters = [];
+  var data = null;          // server result (Zoho figures)
+  var edits = {};           // key -> paise (signed, in the line's own sign convention)
+  var open = {};            // group name -> expanded
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---------- dates: default This Month
+  var now = new Date();
+  var iso = function (d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  $('from').value = iso(new Date(now.getFullYear(), now.getMonth(), 1));
+  $('to').value = iso(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+  var dmy = function (s) { var p = s.split('-'); return p[2] + '-' + p[1] + '-' + p[0]; };
+
+  // ---------- money
+  var P = function (x) { return Math.round((Number(x) || 0) * 100); };
+  var fmt = function (p) {
+    var s = (Math.abs(p) / 100).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    return p < 0 ? '-' + s : s;
+  };
+  var parseAmt = function (s) { var v = String(s).replace(/[,\s₹]/g, ''); if (!/^-?\d*(\.\d{0,2})?$/.test(v) || v === '' || v === '-') return null; return Math.round(parseFloat(v) * 100); };
+
+  // ---------- messages
+  function msg(kind, text) { var d = document.createElement('div'); d.className = 'msg ' + kind; d.textContent = text; $('msgs').appendChild(d); }
+  function clearMsgs() { $('msgs').innerHTML = ''; }
+  function status(t) { $('status').textContent = t; }
+
+  // ---------- Zoho Web Tab token
+  window.addEventListener('message', function (e) {
+    if (e.origin !== ZOHO_ORIGIN) return;
+    var d = e.data;
+    if (typeof d === 'string') { try { d = JSON.parse(d); } catch (_) { return; } }
+    if (!d || d.type !== 'ZOHO_WEBTAB_AUTH_TOKENS') return;
+    token = d.jwt_token || null;
+    if (token) { $('run').disabled = false; if (!data) status('Ready'); }
+    else { $('run').disabled = true; status('Zoho session ended — reload this tab'); }
+    var w = tokenWaiters; tokenWaiters = []; w.forEach(function (f) { f(token); });
+  });
+  setTimeout(function () { if (!token) { status(''); msg('err', 'No sign-in from Zoho Books. Open this page from the P&L tab inside Zoho Books.'); } }, 8000);
+
+  function tokenExp(t) { try { var b = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); return JSON.parse(atob(b)).exp || 0; } catch (_) { return 0; } }
+  function freshToken() {
+    return new Promise(function (resolve, reject) {
+      if (token && tokenExp(token) - Date.now() / 1000 > 120) return resolve(token);
+      if (window.parent === window) return reject(new Error('Not inside Zoho Books'));
+      var done = false;
+      tokenWaiters.push(function (t) { done = true; t ? resolve(t) : reject(new Error('Zoho session ended')); });
+      window.parent.postMessage({type: 'ZOHO_WEBTAB_REQUEST_TOKEN_REFRESH'}, ZOHO_ORIGIN);
+      setTimeout(function () { if (!done) reject(new Error('Zoho did not refresh the sign-in. Reload this tab.')); }, 15000);
+    });
+  }
+
+  // ---------- run
+  var timer = null;
+  function setBusy(b) { ['run', 'reset', 'print'].forEach(function (id) { $(id).disabled = b || (id !== 'run' && !data) || (id === 'run' && !token); }); }
+  $('run').addEventListener('click', function () {
+    var from = $('from').value, to = $('to').value;
+    clearMsgs();
+    if (!from || !to || from > to) { msg('err', 'Pick a valid From and To date.'); return; }
+    if ((new Date(to) - new Date(from)) / 86400000 > 366) { msg('err', 'Pick a range of one year or less.'); return; }
+    setBusy(true);
+    var t0 = Date.now();
+    var long = (new Date(to) - new Date(from)) / 86400000 > 95;
+    status('Fetching from Zoho… 0 s');
+    timer = setInterval(function () { status('Fetching from Zoho… ' + Math.round((Date.now() - t0) / 1000) + ' s' + (long ? ' (a full year takes about 1½–2 minutes)' : '')); }, 1000);
+    var attempt = function (retry) {
+      return freshToken().then(function (tk) {
+        return fetch(WEBHOOK, {method: 'POST', body: new URLSearchParams({from: from, to: to, token: tk})});
+      }).then(function (r) { return r.text(); }).then(function (txt) {
+        if (!txt) {
+          if (retry) { token = null; return attempt(false); }
+          throw new Error('The report could not be produced. Reload this tab and try again.');
+        }
+        var j = JSON.parse(txt);
+        if (!j.tradingDr) throw new Error('Unexpected reply from the report server.');
+        return j;
+      });
+    };
+    attempt(true).then(function (j) {
+      data = j; edits = {}; open = {};
+      render();
+      status('Loaded in ' + Math.round((Date.now() - t0) / 1000) + ' s');
+    }).catch(function (e) {
+      status(''); msg('err', e.message || String(e));
+    }).then(function () { clearInterval(timer); setBusy(false); });
+  });
+  $('reset').addEventListener('click', function () { edits = {}; render(); });
+  $('print').addEventListener('click', function () { window.print(); });
+
+  // ---------- model with edits applied
+  function val(l) { return edits.hasOwnProperty(l.key) ? edits[l.key] : P(l.amount); }
+
+  function build() {
+    var D = data;
+    var tDr = D.tradingDr.slice();
+    var rank = function (l) { return /^inc:/.test(l.key) && /SALES/i.test(l.label) ? 0 : l.key === 'salesReturn' ? 1 : /^inc:/.test(l.key) ? 2 : 3; };
+    var tCr = D.tradingCr.map(function (l, i) { return [rank(l), i, l]; }).sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }).map(function (x) { return x[2]; });
+    var pDr = D.plDr.slice(), pCr = D.plCr.filter(function (l) { return l.key !== 'gstNet'; });
+    var gst = D.plCr.filter(function (l) { return l.key === 'gstNet'; })[0];
+    var gstV = gst ? val(gst) : 0;
+    var sum = function (a) { return a.reduce(function (s, l) { return s + val(l); }, 0); };
+    var netSales = tCr.filter(function (l) { return /^inc:/.test(l.key) && /SALES/i.test(l.label); }).reduce(function (s, l) { return s + val(l); }, 0)
+      + tCr.filter(function (l) { return l.key === 'salesReturn'; }).reduce(function (s, l) { return s + val(l); }, 0);
+    var trDr = sum(tDr), trCr = sum(tCr), gp = trCr - trDr;
+    var plDrT = sum(pDr) + (gstV < 0 ? -gstV : 0);
+    var plCrT = sum(pCr) + (gstV > 0 ? gstV : 0);
+    var np = plCrT + gp - plDrT;
+    return {tDr: tDr, tCr: tCr, pDr: pDr, pCr: pCr, gst: gst, gstV: gstV, netSales: netSales, trDr: trDr, trCr: trCr, gp: gp, plDrT: plDrT, plCrT: plCrT, np: np};
+  }
+
+  // rows for one side: array of {label, key, amount(paise), cls, editable, group, child, total}
+  function sideRows(lines, extra) {
+    var rows = [], seen = {};
+    lines.forEach(function (l) {
+      if (l.group) {
+        if (seen[l.group]) return;
+        seen[l.group] = true;
+        var kids = lines.filter(function (x) { return x.group === l.group; });
+        var tot = kids.reduce(function (s, x) { return s + val(x); }, 0);
+        rows.push({label: l.group, amount: tot, grp: l.group, cls: 'grp' + (open[l.group] ? ' open' : '')});
+        if (open[l.group]) kids.forEach(function (k) { rows.push({label: k.label, key: k.key, amount: val(k), editable: true, cls: 'child'}); });
+      } else rows.push({label: l.label, key: l.key, amount: val(l), editable: true});
+    });
+    return rows.concat(extra || []);
+  }
+
+  function render() {
+    var M = build();
+    document.body.classList.toggle('edited', Object.keys(edits).length > 0);
+    $('sheet').style.display = '';
+    $('period').textContent = 'Profit & Loss A/c for ' + dmy(data.from) + ' to ' + dmy(data.to);
+    var pc = function (p) { return M.netSales ? (p / M.netSales * 100).toFixed(2) : ''; };
+    var body = $('body'); body.innerHTML = '';
+    var head = function (t) { var tr = document.createElement('tr'); tr.className = 'sechead'; tr.innerHTML = '<td colspan="6"></td>'; tr.firstChild.textContent = t; body.appendChild(tr); };
+    var cell = function (tr, r, cls) {
+      var tdP = document.createElement('td'), tdC = document.createElement('td'), tdA = document.createElement('td');
+      tdP.className = 'p'; tdC.className = 'pc'; tdA.className = 'a';
+      if (r) {
+        tdP.textContent = r.label; if (r.cls) tdP.className += ' ' + r.cls;
+        tdC.textContent = r.noPc ? '' : pc(r.amount);
+        tdA.textContent = fmt(r.amount); if (r.amount < 0) tdA.className += ' neg';
+        if (r.editable) { tdA.className += ' ed'; tdA.dataset.key = r.key; if (edits.hasOwnProperty(r.key)) tdA.className += ' changed'; }
+        if (r.grp) tdP.dataset.grp = r.grp;
+      }
+      if (cls) tr.className = cls;
+      tr.appendChild(tdP); tr.appendChild(tdC); tr.appendChild(tdA);
+    };
+    var pair = function (L, R, cls) {
+      var n = Math.max(L.length, R.length);
+      for (var i = 0; i < n; i++) { var tr = document.createElement('tr'); cell(tr, L[i], cls); cell(tr, R[i], cls); body.appendChild(tr); }
+    };
+
+    // Trading A/c
+    head('Trading Account');
+    var gpRowDr = M.gp >= 0 ? [{label: 'Gross Profit c/f', amount: M.gp, cls: 'sec'}] : [];
+    var gpRowCr = M.gp < 0 ? [{label: 'Gross Loss c/f', amount: -M.gp, cls: 'sec'}] : [];
+    pair(sideRows(M.tDr, gpRowDr), sideRows(M.tCr, gpRowCr));
+    var trTot = Math.max(M.trDr + Math.max(M.gp, 0), M.trCr + Math.max(-M.gp, 0));
+    pair([{label: 'Total', amount: trTot, noPc: true}], [{label: 'Total', amount: trTot, noPc: true}], 'tot');
+
+    // P&L A/c
+    head('Profit & Loss Account');
+    var drExtra = [], crFirst = [];
+    if (M.gp >= 0) crFirst.push({label: 'Gross Profit b/f', amount: M.gp, cls: 'sec'}); else drExtra.push({label: 'Gross Loss b/f', amount: -M.gp, cls: 'sec'});
+    var gstDr = M.gst && M.gstV < 0 ? [{label: M.gst.label, key: 'gstNet', amount: -M.gstV, editable: true}] : [];
+    var gstCr = M.gst && M.gstV > 0 ? [{label: M.gst.label, key: 'gstNet', amount: M.gstV, editable: true}] : [];
+    var npDr = M.np >= 0 ? [{label: 'Net Profit', amount: M.np, cls: 'sec'}] : [];
+    var npCr = M.np < 0 ? [{label: 'Net Loss', amount: -M.np, cls: 'sec'}] : [];
+    var L = drExtra.concat(sideRows(M.pDr), gstDr, npDr);
+    var R = crFirst.concat(sideRows(M.pCr), gstCr, npCr);
+    pair(L, R);
+    var plTot = M.plCrT + Math.max(M.gp, 0) + Math.max(-M.np, 0);
+    pair([{label: 'Total', amount: plTot, noPc: true}], [{label: 'Total', amount: plTot, noPc: true}], 'tot');
+
+    // checks + footer
+    var c = data.checks || {};
+    var warn = document.getElementById('tiewarn'); if (warn) warn.remove();
+    if (!data.ok) {
+      var w = document.createElement('div'); w.id = 'tiewarn'; w.className = 'msg warn';
+      w.textContent = 'Does not tie to Zoho — do not rely on these figures. Net profit difference ₹' + fmt(P(c.npDiff)) +
+        '; GST output difference ₹' + fmt(P(c.gstOutDiff)) + '; GST input difference ₹' + fmt(P(c.gstInDiff)) + '.';
+      $('msgs').prepend(w);
+    }
+    var f = 'Net sales ₹' + fmt(M.netSales) + ' (basis for %). Zoho net profit ₹' + fmt(P(c.zohoNP)) + (data.ok ? ' — ties ✓' : ' — DOES NOT TIE') + '.';
+    if (c.gstOnNonPLDocs) f += ' GST of ₹' + fmt(P(c.gstOnNonPLDocs)) + ' on asset bills is outside the P&L.';
+    f += ' Amounts include GST except stock; GST (net) balances back to Zoho.';
+    $('foot').textContent = f;
+  }
+
+  // ---------- interactions: expand groups, edit amounts
+  $('body').addEventListener('click', function (e) {
+    var td = e.target.closest('td');
+    if (!td) return;
+    if (td.dataset.grp) { open[td.dataset.grp] = !open[td.dataset.grp]; render(); return; }
+    if (!td.classList.contains('ed') || td.querySelector('input')) return;
+    var key = td.dataset.key, shown = parseAmt(td.textContent);
+    var inp = document.createElement('input'); inp.value = (shown / 100).toFixed(2);
+    td.textContent = ''; td.appendChild(inp); inp.focus(); inp.select();
+    var finish = function (save) {
+      if (!inp.parentNode) return;
+      if (save) {
+        var v = parseAmt(inp.value);
+        if (v !== null) {
+          if (key === 'gstNet') { var cur = build(); v = cur.gstV < 0 ? -v : v; }
+          var orig = P(findLine(key).amount);
+          if (v === orig) delete edits[key]; else edits[key] = v;
+        }
+      }
+      render();
+    };
+    inp.addEventListener('keydown', function (k) { if (k.key === 'Enter') finish(true); if (k.key === 'Escape') finish(false); });
+    inp.addEventListener('blur', function () { finish(true); });
+  });
+  function findLine(key) {
+    var all = data.tradingDr.concat(data.tradingCr, data.plDr, data.plCr);
+    for (var i = 0; i < all.length; i++) if (all[i].key === key) return all[i];
+    return {amount: 0};
+  }
+
+  // preview hook (not used inside Zoho)
+  window.__plRender = function (j) { data = j; edits = {}; open = {}; render(); setBusy(false); status('Preview'); };
+})();
+</script>
+</body>
+</html>
